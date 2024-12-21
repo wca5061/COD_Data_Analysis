@@ -1,0 +1,407 @@
+---
+title: "ArsenaultW_STAT380_MP2"
+author: "Will Arsenault"
+date: "2024-10-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Front Matter
+
+```{r}
+# Front Matter load nescessary packages and dataset
+# Read the dataset into R using read.excel()
+library(readxl)
+library(tidyverse)
+library(dplyr)
+CODGames2 <- read_excel("~/Downloads/CODGames2_mp.xlsx")
+```
+
+# Task 1: na.omit() Function on the Dataset
+
+#### 1. Explain why you should avoid using the function na.omit() to remove observations (rows) with missing data for the CODGames2_mp dataset. NOTE: If you want to write a great answer, use the function that we wrote in the notes for counting the number of NA’s and apply that function to each row of the dataset. (In the notes we applied the function to each column instead of each row.)
+
+Utilizing the na.omit() function to remove observations with missing data from the CODGames2_mp dataset would result in a loss in a large amount of data. This dataset contains many variables such as: Confirms, Denies, Objectives, ObjectiveKills, Captures, Diffuses, Plants, Detonates, Deposits, Time_Sec, and Time_Min that have a very high number of NA values. Applying na.omit() would delete every row containing 1 or more missing values across these variables, resulting in a much smaller dataset, or potentially even deleting all rows, which would make further analysis impossible. In order to see how impactful the na.omit() function would be I will create a function that counts the number of NA values for each row in the dataset.
+
+```{r}
+# This function will count the number of NA's in a vector
+countNA <- function(vector){
+  numberNA <- sum(is.na(vector))
+  return(numberNA)
+}
+
+# apply the countNA function to each row in the CODGames2 dataset
+apply(X = CODGames2, MARGIN = 1, FUN = countNA)
+```
+
+As we can see from the above output, every single row in the dataset has more than 1 NA value since none of the number in the output are 0. Using the na.omit() function would result in the deletion of all of the rows from the dataset. This means that using the na.omit() function on the dataset would delete the entire dataset which would make it impossible for any further analysis. I will show how using this function will delete all of the rows in the dataset by first showing the amount of rows in the original CODGames2 dataset:
+
+```{r}
+nrow(CODGames2)
+```
+
+There are 211 rows in the CODGames2 dataset before using the na.omit() function.
+
+As we can see since all the rows have NA's the na.omit() function would delete **all** of the observations from the dataset since this function just looks for a single NA value in each row and if there is 1 or more NA values in a row the function will delete the **entire** row. The na.omit() function will get applied to every row in the dataset. This also comes down to the fact that every single row in the dataset has multiple NA values meaning using the na.omit() function would delete all of the rows in the data set when used.
+
+I can show how using the na.omit() function would delete all of the observations in the dataset by creating a tempDF (temporary copy dataset of CODGames2) for CODGames2 and then using the na.omit() function on the DF. Lastly, I will show the amount of rows in the dataset to prove that there will be zero rows left.
+
+```{r}
+tempDF <- CODGames2 %>%
+  na.omit()
+
+nrow(tempDF)
+```
+
+As expected, nrow(tempDF) returns 0, proving that using na.omit() on CODGames2 would remove all observations. Therefore, I would use a more selective data prepping approach. This could be something such as imputing missing values or removing rows with excessive NAs, instead of completely omitting them with na.omit().
+
+This function is OK to use when there are a few rows that have NA values for data prepping purposes but is not okay to use when every single observation in the dataset contains a NA value since the result would be the loss of all the data that you originally had.
+
+# Task 2: 5 Variable Exploration
+
+## Choice (Categorical Variable)
+
+The Choice variable represents the map choice for which map the player will be playing in. Since the variable is categorical for the summary statistics I will obtain the counts for each level of the variable. The possible values that this variable takes on are the different map names in Call of Duty. These names include "Moscow", "Miami", "Yamantau", etc. Also using n() I will find the amount of missing data within the Choice variable.
+
+```{r}
+# Count the frequency for each of the map choices and amount of NA's/missing data
+choice_summary <- CODGames2 %>%
+  group_by(Choice) %>%
+  summarise(Count = n()) %>%
+  arrange(desc(Count))
+
+choice_summary
+```
+
+Since this variable represents the map that the player was playing in for that specific match, we can see that the maps that the player played in the most was "Crossroads Strike", "Diesel", and "Rush". The players played in each of these three maps 15 times. The map that the player played in the least was "Amerika" as he only played 3 matches in this map.
+
+We can also see that this variable has one missing "NA" values. This means that there is only 1 incomplete data entry for the Choice variable. I would say that the data for this variable is complete as this only having 1 missing value is negligent.
+
+Since Choice is a categorical variable we can create a bar plot to show the distribution of values for the Choice variable:
+
+## Bar Plot for Choice variable
+
+```{r}
+# Bar plot for the Choice variable
+ggplot(data = choice_summary, mapping = aes(x = reorder(Choice, -Count), y = Count, fill = Choice)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Distribution of 'Choice' Variable",
+       x = "Choice",
+       y = "Count") +
+  # Rotate map names so that they are readable
+  theme(axis.text.x = element_text(angle = 60, hjust = 1))
+```
+
+As we can see from the bar the three most popular maps that the player played the matches in were "Crossroads Strike", "Diesel", and "Rush". The counts for these three maps were 15. This means that the player played 15 matches in each of these maps. We can also see from the bar plot the least popular map that the player played in which was "Amerika". The player played a total of 3 matches in the "Amerika" map.
+
+The key thing thing that I learned about the Choice variable what maps were most preferred by the player. By ordering maps from most to least frequently chosen we were able to see this. Maps with higher frequencies could indicate those that the player might feel more comfortable or skilled on, which shows a pattern in the player’s choices. The repeated selection of specific maps such as: "Crossroads Strike", "Diesel", and "Rush" could imply familiarity and an effective strategy on those maps, which might contribute to better performance by the player. Since the player frequently plays on only a few maps, it might mean that there is a a preference for certain types of challenges or game environments. Another thing that I learned is that maps that were chosen less often or not at all could represent areas where the player could have limited experience. These maps could offer opportunities for the player to expand their skill set by exploring less familiar layouts and strategies.
+
+## Score (Quantitative Variable)
+
+The Score variable is a quantitative variable. This variable takes on numerical values that represent total points the player earned in a single match. In COD, players accumulate points through things like kills, assists, objective completions, and possibly killstreak bonuses. The Score variable could serve as an indicator of overall performance by the player for each match. Since the Score variable is quantitative I will create summary statistics for the variable and find the amount of missing NA values:
+
+```{r}
+score_summary <- CODGames2 %>%
+  summarize(
+    # 5-number summary for score variable and amount of NA's/missing data
+    Mean = mean(Score, na.rm = TRUE),
+    Median = median(Score, na.rm = TRUE),
+    SD = sd(Score, na.rm = TRUE),
+    Min = min(Score, na.rm = TRUE),
+    Max = max(Score, na.rm = TRUE),
+    Missing = sum(is.na(Score))
+  )
+
+score_summary
+```
+
+The first thing to note is that the data for the Score variable is complete as there are no NA data entries. All of the 211 matches recorded in the dataset have recorded scores for the player. We can proceed to examining the variable more since there is complete information in the dataset about the variable.
+
+As we can see the mean score for the player in all of the matches is higher than the median. The mean score for the player is 2944.531, whereas the median score is 2770. This means that the distribution of scores for the player in the matches recorded in the dataset is right-skewed. There are some high scores that significantly pull the mean up. This means that the player had a few exceptionally good matches while the majority of scores are lower. Overall, while the player may have a few standout and exceptional performances, their typical performance (as represented by the median) is lower than the average performance (mean). This can means that the player has an inconsistency in there performance.
+
+The standard deviation of 1464.965 shows that there is a relatively high level of variation in the player’s scores. This means that the scores are spread out over a wide range. This reinforces the idea that there are some very high or low scores relative to the mean. Which also shows inconsistencies in the players performance in the matches that were recorded. The minimum score of 100 shows the lowest score that the player got in a single match. This score indicates a match where the player had very poor performance. The maximum score of 7315 shows the highest score the player achieved in a match. This high score means that the player has had at least one exceptional performance that significantly contributes to the overall mean of 2944.531.
+
+We can create a boxplot to show outliers and better show the distribution of the Score variable.
+
+## Boxplot for Score Variable
+
+```{r}
+# Boxplot of Score
+ggplot(data = CODGames2, mapping = aes(y = Score)) +
+  geom_boxplot(fill = "lightgreen", color = "black") +
+  labs(title = "Boxplot of Player Score",
+       y = "Total Score")
+```
+
+In the boxplot, there are a few outliers on the high end of the scores for the player. These outliers on the high end represent exceptional performance in certain matches. These high outliers impact the mean score, raising it above the median. This demonstrates that while the player has the ability to achieve high scores, the overall performance is not consistent at that level.
+
+The first thing that I learned from the Score variable is that player has a wide range of scores (from 100 to 7315), indicating varied performance levels across the matches recorded in the dataset. This range means that the player both struggles in some matches and exceptional performances in others. Also the mean being greater than the median means that there is a right-skewed distribution of scores. This indicates that while most scores are clustered around lower values, there are a few matches with very high scores that elevate the average score for the player. Also, the high standard deviation of 1464.965 means that there is a significant variability in the players performance if we are measuring it in terms of player score. From the min (100) and max (7315) scores I learned that the player had a performance where he had an extremely low score (bad performance) and a performance where he had an exceptionally high score (good performance).
+
+## PrimaryWeapon (Categorical Variable)
+
+The PrimaryWeapon variable is a categorical variable where the values are the player's primary weapon for that match of Call of Duty. The values that this variable can take on based on my prior knowledge about Call of Duty:
+
+Assault Rifles: e.g., Type 63, AK-47, Krig 6 Submachine Guns (SMGs): e.g., MP5, MG 82 Snipers: Pelington 703
+
+Each weapon represents a different class of of firearms that the players can choose from in there gameplay. The distribution of these weapon types in the COD dataset provides insights into player preferences and trends within the game. I will calculate summary statistics for the PrimaryWeapon categorical variable below and find the amount of missing NA values:
+
+```{r}
+# PrimaryWeapon summary
+primary_weapon_summary <- CODGames2 %>%
+  group_by(PrimaryWeapon) %>%
+  summarise(Count = n(),
+            # Specify the variable to check for NA's
+            num_NA = sum(is.na(PrimaryWeapon))) %>%
+  arrange(desc(Count))
+
+primary_weapon_summary
+
+```
+
+There are 0 NA values for the PrimaryWeapon variable which means that there is complete information in the CODGames2 dataset for the PrimaryWeapon variable. From the above R output we can see that the weapon that the player had as there primary weapon for that match the most was the M16. The player used the M16 as there primary weapon in 48 out of the 211 matches that were recorded in the dataset. Other popular choices are the MP5 (45 occurrences) and Pelington 703 (38 occurrences), indicating these are popular choices for the player to use as there primary weapon. Less common choices include weapons like Type 63 (13 occurrences), AK-47 (4 occurrences), FFAR 1 (3 occurrences), and MG 82 (2 occurrences). This distribution shows player's preferences for certain types of weapons, which could be due to factors like weapon effectiveness and personal preference.
+
+Since PrimaryWeapon is a categorical variable in order to create a visualization we can use a bar plot. This will help visualize the different weapons that the player is using for the matches that were recorded in the dataset.
+
+```{r}
+# Create a bar plot for PrimaryWeapon variable
+# Reorder for descending order
+ggplot(data = primary_weapon_summary, mapping = aes(x = reorder(PrimaryWeapon, -Count), y = Count)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  labs(title = "Distribution of Primary Weapons",
+       x = "Primary Weapon",
+       y = "Count") +
+  # Rotate map names so that they are readable
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+In the bar plot the most used weapon by the player is the M16. The other popular weapons by the player are the MP5 and the Pellington 703. These weapons could represent the weapons that the player had the most success with or just prefers in general. Also, the least popular primary weapon choices for the player include the MG 82, FFAR 1, and the AK-47. These weapons are weapons that the player most likely did not prefer or did not have success with. Another reason for why the player did not choose these weapons is because of there effectiveness compared to that of the MP5 and Pellington 703.
+
+From the barplot and the summary statistics of the PrimaryWeapon variable we can see that certain weapons, like the M16 and MP5, are chosen more frequently, suggesting they might be popular for their effectiveness or ease of use. On the other hand, weapons such as the AK-47, FFAR 1, and MG 82 are among the least used by the player, which implies that they are either less effective or less favored by the player that the data is being collected from. Also, the fact that there are 0 NA values for this variable means that we can have even more confidence when it comes to generalizing to which guns the player preferred as there primary weapon and which guns that the player did not like or did not prefer. This distribution could help us understand in the future the player's preferences and could hint at the relative strengths and weaknesses of certain weapons within the game. (Ex. M16 is very effective whereas the MG 82 is not as effective).
+
+## Objectives (Quantitative Variable)
+
+The Objectives variables is a quantitative variable that represents the number of objectives that are achieved by the player. We can create the 5-number summary statistics for the Objectives variable since it is a quantitative variable. Also we can find the amount of missing NA values for the Objectives variable to determine whether we have complete information about the variable in the CODGames2 dataset.
+
+```{r}
+
+# Summary statistics for the Objectives variable
+objectives_summary <- CODGames2 %>%
+  # 5-number summary for objectives variable and amount of NA's
+  summarise(
+    Mean = mean(Objectives, na.rm = TRUE),
+    Median = median(Objectives, na.rm = TRUE),
+    SD = sd(Objectives, na.rm = TRUE),
+    Min = min(Objectives, na.rm = TRUE),
+    Max = max(Objectives, na.rm = TRUE),
+    num_NA = sum(is.na(Objectives))
+  )
+
+objectives_summary
+```
+
+The first thing that I will note is that there is 205 NA values for the Objectives variable. This means that a substantial amount of data is missing for this variable. This is OK since the only time that the Objective variable will take on counts is when the GameType is Kill Confirmed and Domination (from my knowledge of Call of Duty). This is because these are the only two game modes where achieving objectives is the main goal. The mean number of objectives is 13 while the median is 14 objectives. This suggests that the distribution is left-skewed as the mean is less than the median. This indicates that there are a few matches where the player achieved higher objectives. The standard deviation of 4.2 suggests they have some matches with particularly high or low objective counts relative to the average of 13. The minimum (6) and maximum (17) values indicate that the player’s performance in terms of objectives can vary pretty widely from match to match. This could be influenced by the player’s performance or focus in the different matches.
+
+I will create a histogram for the Objectives variable in order to visualize the distribution of the amount of objectives achieved by the player. Since the Objectives variable is quantitative the appropriate visualization is either a boxplot or a histogram. I will create a histogram to show the distribution of the Objectives variable: 
+
+## Histogram of Objectives
+
+```{r}
+# Create a histogram for the Objectives variable
+ggplot(data = CODGames2, mapping = aes(x = Objectives)) +
+  # Adjust binwidth and colors
+  geom_histogram(binwidth = 4, fill = "green", color = "black") + 
+  labs(title = "Distribution of Objectives per Match",
+       x = "Objectives",
+       y = "Frequency")
+```
+
+As we can see from the histogram we can confirm that the distribution of the Objectives variable in the dataset is left-skewed. We can confirm this since the left tail of the histogram is extended, which pulls the mean of 13 objectives below the median of 14 objectives.
+
+The first thing that I learned about the Objectives variable is that average objectives per match (13) indicates the player’s typical objective count, giving us a baseline for their performance in objective based game modes (Kill Confirmed and Domination). Since the distribution is left-skewed this suggests that the few low-performing games pull the mean down, even though most games result in higher objective counts. The consistent high amount of objectives achieved by the player reflect that the player performs well in objective based game modes. Lastly, The spread of values (standard deviation of 4.2) and the range (minimum of 6 and maximum of 17) shows that the player had a moderate amount of variation in objectives achieved across the matches where objectives were involved. This could mean the player's performance fluctuates depending on match conditions or game type.
+
+## XPType (Categorical Variable)
+
+The XPType variable is a categorical variable. In order to explore the XPType variable I will start by looking at the different values that it can take on. I will also check if there is any missing data (NA's) for this variable. For summary statistics I will get the count for each level of the XPType variable as well as the proportion.
+
+```{r}
+# Summarize XPtype variable
+XPType_summary <- CODGames2 %>%
+  group_by(XPType) %>%
+  # Total could for each XP Type
+  summarise(Count = n(),
+            # Count the total number of NA's for each XP type
+            num_NA = sum(is.na(XPType))) %>%
+  # Add proportion variable
+  mutate(Proportion = Count / sum(Count))
+
+XPType_summary
+```
+
+There are 0 missing values for the XPType variable. Since there is no missing values this means that we have complete record of the XP types for the player across all of the matches. The player's matches can either have an "10% Boost" or "Double XP + 10%" as the XPType for that match. The 10% Boost is the most frequent XPType, occurring in 61.1% of matches. This suggests that the player often gets this XP type. This type is either a standard setting or a common event. The Double XP + 10% occurs in 38.9% of matches, meaning that double XP events are less common but still represent a substantial amount of the player’s XP. The distribution suggests that "10% Boost" events are either more frequently available or more commonly selected by the player. If double XP events are limited in amount, the data could also reflect the player’s availability or preference for playing during those periods.
+
+Since XPType is a categorical variable we can create a bar plot to show the distribution of the different XP types in the dataset.
+
+## Bar Plot for XPType Variable
+
+```{r}
+# Create a bar plot for the XPType variable
+ggplot(XPType_summary, aes(x = XPType, y = Count, fill = XPType)) +
+  geom_bar(stat = "identity", color = "black") +
+  labs(title = "Distribution of XP Types", 
+       x = "XP Type", 
+       y = "Count")
+```
+
+As we can see from the bar plot above the "10% Boost" is much more common than the "Double XP + 10%" boost. In summary, we learned that the most frequent XP type is "10% Boost," accounting for 61.1% of matches (129 times). This means that this type of experience boost is a common choice for the player. The "Double XP + 10%" type occurs in 38.9% of matches (82 times), suggesting that while this XP type is less frequent, but still plays a significant role in the player's XP. The data could imply that "10% Boost" events are more consistently available or commonly activated than "Double XP + 10%" boost. IE. the player has more access to the 10% Boost XP type over "Double XP + 10%" boost. From my prior knowledge of Call of Duty, this is generally true as the double XP boost is much rarer than the typical 10% boost. This is shown in the data as the player gets the 10% boost in more than half of the matches. Lastly, we can trust the above analysis since there are 0 missing values for the XPType variable. Since the data is complete to this variable there is more reliability in my insights.
+
+# Task 3: Proportion of the Player's Team (Wins, Losses, and Draws) Using 'Result' Variable
+
+To start I will split the result variable values as they are a string and convert them to numeric values. The score before the "-" will be the variable that corresponds to the player's team score and the value after the "-" will be the variable that corresponds to the opponent team score. Then I will create a outcome variable that uses ifelse() to determine whether the player's team won, lost, or tied. I will use group_by() paired with summarize() to calculate the count for each level of the outcomes variable (win, loss, draw). Lastly, in order to calculate the proportions of the matches in the dataset that the players team won, lost, and tied I will take the count for each of the outcomes (win, loss, draw) and divide that by the total amount of matches that were recorded in the dataset (211). In order to make the code not dependent on the amount of observations in the dataset I will use the nrow() function in order to make a variable that represents the total matches recorded in the dataset that the player played in.
+
+```{r}
+# Step 1: Split scores, determine outcomes, and calculate proportions without `count`
+CODGames2 <- CODGames2 %>%
+  # Create variables for player score and opponent score by splitting on the "-"
+  # Then create an outcome variable that corresponds to a win, loss, or draw for the player based on there teams score vs. the opponents score
+  mutate(
+    # Extract the player's score and opponent's score by splitting using the sub() function
+    player_score = as.numeric(sub("-.*", "", Result)),
+    opponent_score = as.numeric(sub(".*-", "", Result)),
+    # Decide if the match was a win, loss, or draw using ifelse
+    # If player score is greater than opponent score outcome is a win for the player
+    Outcome = ifelse(player_score > opponent_score, "win", 
+               # If player score is less than opponent score outcome is a loss for the player, otherwise the outcome is a draw
+               ifelse(player_score < opponent_score, "loss", "draw"))
+  )
+
+# Find the total amount of matches that are in the dataset using nrow()
+total_matches <- nrow(CODGames2)
+
+# Calculate proportions using group_by and summarize
+result_proportions <- CODGames2 %>%
+  group_by(Outcome) %>%
+  summarize(Count = n()) %>%
+  # Calculate the proportion of each level of Outcome (win, loss, draw) 
+  mutate(Proportion = Count / total_matches)
+
+result_proportions
+
+```
+
+Count: This column shows the number of occurrences for each outcome:
+
+draw: 3 matches ended in a tie. loss: 94 matches were losses for the player's team. win: 114 matches were wins for the player's team.
+
+Also, As we can see from the table that I created above the player's team tied about 1.42% of the matches, lost about 44.55% of the matches, and won about 54.03% of the matches. The player's team had a winning record, winning more than half of their matches (54.03%), while about 44.55% of the matches resulted in losses and only a small fraction of the matches were draws. In my opinion, the player's team is performing quite well as winning more than half of the games that you play in Call of Duty is pretty good. This means that the player's team score was in higher than the opponents team 54.03% of the matches recorded in the datset, which is pretty good.
+
+I will also create a visualization using ggplot in order to show the distribution of the proportions of the wins, losses, and draws by the player's team in the dataset. Since Outcome is a categorical variable I will create a bar plot to show the proportions.
+
+## Bar Plot of The Proportion of Matches the Player's Team Won, Lost, and Tied
+
+```{r}
+# Create a bar plot showing the proportions of outcomes
+ggplot(data = result_proportions, mapping = aes(x = Outcome,
+                                                y = Proportion,
+                                                fill = Outcome)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Proportions of Match Outcomes For Player's Team",
+       x = "Outcome",
+       y = "Proportion")
+
+
+```
+
+The bar representing wins is the tallest. This shows that a little over half of the matches (approximately 54%) ended in a victory for the player’s team. This suggests that the player’s team is performing well, winning more matches than they lose. A win proportion above 50% is generally shows a strong team performance in COD. While the player’s team has a positive win record, the large percentage of losses (nearly 45%) suggests that there are still many competitive matches where they did not secure a win. The small proportion of draws shows that most games are competitive with clear outcomes. This data could be useful for looking at the player's team performance over the course of the matches that are recorded in the dataset. We could also look at the player's teams performance over time (June, July, August) if we wanted to since we have the dates of when the matches were player.
+
+## Pie Chart for the propotion of wins, losses, and draws for the player's team
+
+I will also create a pie chart for the outcomes of the matches for the player's team. Since there is only 3 values that the outcomes variable can take on it is appropiate to use a pie chart.
+
+```{r}
+
+# Create a pie chart showing the proportions of outcomes
+ggplot(data = result_proportions, mapping = aes(x = "",
+                                                y = Proportion,
+                                                fill = Outcome)) +
+  # Create a bar chart
+  geom_bar(stat = "identity", width = 1) +  
+  # Transform the bar chart into a pie chart
+  coord_polar("y") +  
+  labs(title = "Proportions of Match Outcomes By Player's Team")
+
+```
+
+We can draw the same interpretations from the pie chart as we did with the bar chart. It is shown in blue that more than 50% of the pie chart is the proportions of wins by the player's team. Then in green is the proportion of losses for the player's team. Lastly, the red sliver in the pie chart represents the proportion of draws or ties by the player's team. Again, this data could be useful for looking at the player's team performance over the course of the matches that are recorded in the dataset. In conclusion, I would say that the player's team is performing generally well as they won more than half of the matches that they played.
+
+# Task 4: Inference Using Logistic Regression
+
+**Question:** What is the effect of the opponent teams score on the probability of the player's team winning the match?
+
+Variables: Response Variable: Win (Binary) - whether the player's team won the game 1 if the player's team won, the players team score \> opponent team score 0 if the player's team did not win, the players team score $\leq$ opponent team score (Inclusive of losses and draws)
+
+Preditor Variable: opponent_score (qunatitative) This variable is the score of the opponent which is measured numerically and is quantitative. I created this variable in Task 3 when calculating the proportions of the games that the player's team won, lost, and tied
+
+Prepare the data by creating a indicator variable for Won where the successes (1) are when the player's team wins and the failures (0) are when the player's team either loses or ties.
+
+```{r}
+# Create the Win indicator variable
+CODGames2 <- CODGames2 %>%
+  # Create the response variable for whether the player’s team won the game treating games draws as not winning
+  mutate(
+    # 1 for win, 0 for not winning (loss or draw)
+    Win = ifelse(player_score > opponent_score, 1, 0)  
+  )
+```
+
+Since we have now prepped the data we can now create the logistic regression model where the response is the Win variable and the predictor is the opponent score:
+
+```{r}
+# Fit the logistic regression model
+logistic_model <- glm(Win ~ opponent_score, family = "binomial", data = CODGames2)
+
+summary(logistic_model)
+```
+
+The intercept $\hat{\beta_0}$ is 6.76314 represents the log-odds of the player's team winning when the opponent's score is zero. While a score of zero for the opponent might not be realistic in most games, the intercept helps in setting the baseline for the model.
+
+The logit (log-odds) form of the model is: $\log\left(\frac{\hat{p_i}}{1 - \hat{p_i}}\right) = 6.76314 - 0.07224 \cdot x_{i, \text{opponent_score}}$ The probability form of the model is: $P(\text{Win} = 1) = \hat{p_i} = \frac{e^{6.76314 - 0.07224 \cdot x_{i, \text{opponent_score}}}}{1 + e^{6.76314 - 0.07224 \cdot x_{i, \text{opponent_score}}}}$
+
+```{r}
+exp(-0.07224)
+```
+
+
+Opponent Score: The coeffecient for opponent score is -0.07224, meaning there is a negative association between the opponent’s score and the probability of the player's team winning. So, $\hat{\beta_1} = -0.07224$. We can raise $\hat{\beta_1}$ to the $e$. $e^{-0.07224} \approx 0.93$. So, we can now make an interpretation of the slope instead of odds instead of log odds.
+
+**Interpretation**: For each additional point that the opponent teams scores, we expect the odds of the player's team winning to change by a factor of 0.93. Thus, for each additional point scored by the opponent's team, we expect the odds of the player's team winning the match to decrease by approximately 7%.
+
+The 7% calculation comes from $(1-0.93)*100$% = 7%
+
+
+**Answer to Question**: In terms of odds, each additional point scored by the opponent team, the odds of the player’s team winning changes by a factor of 0.93 $( e^{-0.07224} \approx 0.93 )$. This means that for every one-point increase in the opponent's score, the odds of the player's team winning decrease by approximately 7\%. Thus, as the opponent's score rises, the odds that the player’s team will win the match become progressively lower. In other words, as the opponent team scores higher, the likelihood of the player’s team winning decreases, meaning higher opponent scores are associated with a lower chance of a win for the player's team.
+
+
+The results of the logistic regression model show a statistically significant negative relationship between the opponent’s score and the probability of the player’s team winning. This implies that as the opponent's score increases, the likelihood of the player’s team winning decreases. The model gives evidence that the opponent’s score is a crucial factor in determining match outcomes.
+
+Let’s do an example with $( x_{\text{opponent_score}} = 50 )$.
+
+Given the model: $$\log\left(\frac{\hat{p}}{1 - \hat{p}}\right) = 6.76314 - 0.07224 \cdot x_{\text{opponent_score}}$$
+
+1.  **Calculate the log-odds**: Substitute $( x_{\text{opponent_score}} = 50 )$ into the equation:
+
+    $\log\left(\frac{\hat{p}}{1 - \hat{p}}\right) = 6.76314 - 0.07224 \cdot 50$
+
+    Simplify the multiplication: = 6.76314 - 3.612 = 3.15114
+
+2.  **Convert log-odds to probability**: To find the probability $( \hat{p} )$ we use the logistic form for $\hat{p_i}$ which is the probability form
+
+    $\hat{p} = \frac{e^{3.15114}}{1 + e^{3.15114}}$
+
+    Calculate $( e^{3.15114} )$: $e^{3.15114} \approx 23.39$
+
+    Then substitute into the probability equation: $\hat{p} = \frac{23.39}{1 + 23.39} = \frac{23.39}{24.39} \approx 0.959$
+
+Therefore, with an opponent score of 50, the probability of the player’s team winning is approximately **95.9%**.
